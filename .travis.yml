@@ -1,0 +1,19 @@
+language: python
+
+sudo: false
+
+env:
+    - TOX_ENV=py35-flake8
+    - TOX_ENV=py35-docs
+    - TOX_ENV=py35-django1.11-drf3.7
+    - TOX_ENV=py35-django2.0-drf3.7
+    - TOX_ENV=py36-django2.0-drf3.7
+
+matrix:
+  fast_finish: true
+
+install:
+  - pip install tox
+
+script:
+    - tox -e $TOX_ENV

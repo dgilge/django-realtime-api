@@ -1,0 +1,32 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>WebSockets</title>
+    <script src={% static 'channels/js/websocketbridge.js' %}></script>
+  </head>
+  <body>
+    <div>
+       <button id="button-create" onclick="createObject()">Create</button> 
+    </div>
+    <div>
+      <p id="result"></p>
+    </div>
+    <script>
+    const webSocketBridge = new channels.WebSocketBridge();
+    webSocketBridge.connect('/api/');
+    webSocketBridge.listen(function(action, stream) {
+      document.getElementById('result').innerHTML = JSON.stringify(action);//, stream.toString();
+      console.log(action, stream);
+    });
+
+    function createObject() {
+      webSocketBridge.stream('test-obj/create/').send({
+        name: 'New',
+        counter: '1',
+      });
+    };
+    </script>
+  </body>
+</html>
