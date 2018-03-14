@@ -1,3 +1,5 @@
+.. highlight:: python
+
 =============
 Real time API
 =============
@@ -32,14 +34,12 @@ Not supported so far:
 General realtime API features
 -----------------------------
 
-Disconnecting WebSockets when a user or authentications changes
-...............................................................
+Disconnecting WebSockets when a user or authentication changes
+..............................................................
 
-Normally the user object is set at the establishment of a scope and won't change if the user object changes or the user logs in/out. You can use the ``GroupUserConsumer`` in connection with the provided signals to change that.
+Normally the user object is set at the establishment of a scope and won't change if the user object changes or the user logs in/out. You can use the ``GroupUserConsumer`` in connection with the provided signals to disconnect a channel accordingly. To accomplish this the ``GroupUserConsumer`` tracks all channels which a user has.
 
-``GroupUserConsumer`` tracks all channels which a user has. The signals disconnect all corresponding WebSockets.
-
-I plan to separate the REST framework specific things from the general stuff in order to provide an API class with base functions like subscription.
+I plan to separate the REST framework specific implementations from the general stuff in order to provide an API class with base functions like subscription.
 
 Testing
 .......
@@ -52,11 +52,11 @@ Some features you might find helpful:
 
   The class includes some helpful asynchronous methods, they don't change the scope, though:
 
-     * ``login(**credentials)``
-     * ``force_login(user, backend=None)``
-     * ``logout()``
-     * ``queue_empty(timeout=0.1)`` – if there are messages to receive
-     * ``queue_count(wait=0.1)`` - how many messages wait to be received
+  * ``login(**credentials)``
+  * ``force_login(user, backend=None)``
+  * ``logout()``
+  * ``queue_empty(timeout=0.1)`` – if there are messages to receive
+  * ``queue_count(wait=0.1)`` - how many messages wait to be received
 
 * ``create_user(username=None, password='pw', **kwargs)`` returns a user object. Usage::
 
@@ -77,62 +77,84 @@ Dependencies
 * Channels 2.0
 * Django REST framework 3.7 (if you want to use it)
 
+For production probably:
+
+* channels_redis
+* Redis
+
 Quick start
 ===========
 
-1. Get real time API::
+1. Get real time API:
 
-   pip install -e git:
-   pipenv install git+https://github.com/dgilge/.git#egg=-2.0.2
+   .. code-block:: bash
 
-The package is not available on PyPI yet. If there are several people who want to use it I will make it available. Just let me know.
+      pip install git+https://github.com/dgilge/django-realtime-api.git#egg=django-realtime-api
 
-2. Add "realtime-api" to your INSTALLED_APPS setting like this::
+   The package is not available on PyPI yet. If there are several people who want to use it I will make it available. Just let me know.
 
-   INSTALLED_APPS = [
-       ...
-       'channels',
-       'djangorestframework',
-       'realtime-api',
-   ]
+2. Add ``realtime_api`` to your INSTALLED_APPS setting like this::
 
-3. Create a consumer for each Django REST framework view (or viewset) you want to have a WebSocket end point for. ``stream`` is the first part of the URL. You may store them in a ``consumers.py`` module in your app. For instance::
+      INSTALLED_APPS = [
+          ...
+          'channels',
+          'rest_framework',
+          'realtime_api',
+      ]
 
-   from realtime_api.consumers import APIConsumer
+3. Create a consumer for each Django REST framework view (or viewset) you want to have a WebSocket end point for. ``stream`` is the first part of the URL. You may have them in a ``consumers.py`` module in your app. For instance::
 
-   class MyRealTimeConsumer(APIConsumer):
-       view = MyAPIView
-       stream = 'my-api'
+      from realtime_api.consumers import APIConsumer
+
+      class MyRealTimeConsumer(APIConsumer):
+          view = MyAPIView
+          stream = 'my-api'
 
 4. Register the consumers like this::
 
-   from realtime_api.consumers import APIDemultiplexer
+      from realtime_api.consumers import APIDemultiplexer
 
-   APIDemultiplexer.register(MyRealTimeConsumer, MyOtherConsumer)
+      APIDemultiplexer.register(MyRealTimeConsumer, MyOtherConsumer)
 
 5. Define a routing (for instance in ``routing.py`` in your project folder, where ``urls.py`` lives, too)::
 
-   from channels.routing import ProtocolTypeRouter, URLRouter
-   from channels.security.websocket import AllowedHostsOriginValidator
-   from django.conf.urls import url
-   from realtime_api.consumers import APIDemultiplexer
+      from channels.routing import ProtocolTypeRouter, URLRouter
+      from channels.security.websocket import AllowedHostsOriginValidator
+      from django.conf.urls import url
+      from realtime_api.consumers import APIDemultiplexer
 
-   application = ProtocolTypeRouter({
-       'websocket': AllowedHostsOriginValidator(
-           URLRouter([
-               url('^api/$', APIDemultiplexer),
-           ])
-       ),
-   })
+      application = ProtocolTypeRouter({
+          'websocket': AllowedHostsOriginValidator(
+              URLRouter([
+                  url('^api/$', APIDemultiplexer),
+              ])
+          ),
+      })
 
-You might also want add the ``AuthMiddlewareStack``. More details are available in the Channels documentation.
+   You might also want to add the ``AuthMiddlewareStack``. More details are available in the `Channels documentation <http://channels.readthedocs.io/en/latest/topics/authentication.html>`_.
 
-6. Start the development server with ``python manage.py runserver`` and you are ready to communicate with the API endpoint. Read on for details.
+6. Update your ``settings.py`` to meet the Channels requirements::
+   
+      CHANNEL_LAYERS = {
+          'default': {
+              # Not for production!
+              'BACKEND': 'channels.layers.InMemoryChannelLayer',
+          },
+      }
+
+      ASGI_APPLICATION = 'myproject.routing.application'
+
+7. Start the development server with ``python manage.py runserver`` and you are ready to communicate with the API endpoint. See the `tutorial <http://channels.readthedocs.io/en/latest/tutorial/part_2.html>`_ in the Channels documentation for a simple implementation how to do that. Read on for details.
 
    One thing probably want to override is ``get_group_name()``.
 
 Actions
 =======
+
+Alternatively to the path explained below you can send an equal ``stream`` value within your JSON object.
+
+.. note::
+   One of these implementations (path/stream value) will probably be removed in the future.
 
 Subscription
 ------------
@@ -174,48 +196,43 @@ Delete
 
 Send an empty JSON string (``{}``) to ``/<stream>/delete/<pk>/``.
 
-Alternatively to the path you can send an equal ``stream`` value within your JSON object.
-
-.. note::
-   One of these implementations (path/stream value) will probably be removed in the future.
-
 APIConsumer
 ===========
 
 .. note::
-   The ``APIConsumer`` is no Channels consumer. The reason for this name is that I plan to convert it to a Channels consumer when demultiplexing is implemented.
+   The ``APIConsumer`` is not a Channels consumer. The reason for this name is that I plan to convert it to a Channels consumer when demultiplexing is implemented.
 
 Some things you might to override:
 
 Attributes
 ----------
 
-view
+``view``
 ....
 
 Required, a subclass of ``APIView``. For instance ``ModelViewSet``.
 
-stream
+``stream``
 ......
 
 Required, the first part of the path.
 
-model
+``model``
 .....
 
 Required if you don't include a ``queryset`` in your view.
 
-allowed_actions
+``allowed_actions``
 ...............
 
 Here you can specify the actions (as tuple or list) you want to allow if they differ from the allowed methods in the view. Possible values are ``create``, ``update``, ``delete`` (equivalent to the methods ``POST``, ``PUT``/``PATCH``, ``DELETE``).
 
-lookup_field
+``lookup_field``
 ............
 
 Defaults to ``pk``.
 
-serializer_class
+``serializer_class``
 ................
 
 If you don't want to use the view's ``serializer_class``.
@@ -223,19 +240,19 @@ If you don't want to use the view's ``serializer_class``.
 Methods
 -------
 
-get_group_name
+``get_group_name``
 ..............
 
 The default implementation is a group for each consumer's ``stream`` and object's ``pk``.
 
-Updates are used groups for broadcasting. When a object changes will be serialized and sent to all users (channels) in a group.
+Groups are used for broadcasting. When an object changes it will be serialized and sent to all users (channels) in a group.
 
-Probably you want wider groups. For instance you have a ``Comment`` model with a foreign key to the ``Topic`` model. In order to create one group for each ``Topic`` you could use::
+Probably you desire wider groups. For instance you have a ``Comment`` model with a foreign key to the ``Topic`` model. In order to create one group for each ``Topic`` you could use::
 
-   def get_group_names(self, obj):
+   def get_group_name(self, obj):
        return '{}-{}'.format(self.stream, obj.topic_id)
 
-perform_authentication
+``perform_authentication``
 ......................
 
 If you need a special authentication.
@@ -250,14 +267,14 @@ Limitations
 
 * Multiple view attributes and methods don't have any effect in the consumer. Check if you override them in your view and customize your consumer where needed! For details see below.
 * The view's request instance is a fake and has only a user attribute. (Permissions get the method additionally.)
-* URLs are relative in the JSON objects.
+* URLs in the JSON objects are relative.
 
 Modifications to your API views
 ===============================
 
 Your view might be suitable as it is.
 
-However, if you overrode ``perform_create`` or ``perform_update`` your methods should return the saved instance. Alternatives are to override the methods of the same names in your ``APIConsumer`` subclass or include the ``immediate_broadcast`` attribute and set it to ``False``.
+However, if you overrode ``perform_create`` or ``perform_update`` your methods should return the saved instance. Alternatives are to override the methods of the same names in your ``APIConsumer`` subclass or to include the ``immediate_broadcast`` attribute and set it to ``False``.
 
 
 Used API view attributes and methods
@@ -369,5 +386,5 @@ ToDo
 * JSON object design decisions
 * Separate the DRF specific implementations from the other API consumer code
 * Support nested routing (DRF extensions)
-* Support Django Guardian (e.g. AnonymousUser in login signal)
-* Checking permissions (e.g. at subscription) allows you to get information whether it is in the database (you get a 403) or not (you get a 404). This is a security leak (e.g. by cancelling subscription with ``{'email': 'me@example.com'}``).
+* Support Django Guardian (e.g. AnonymousUser in the login signal)
+* Checking permissions (e.g. at subscription) allows you to get information whether it is in the database (you get a 403) or not (you get a 404). Is this a security leak (e.g. by cancelling subscription with ``{'email': 'me@example.com'}``)?
