@@ -58,5 +58,6 @@ def close_sockets_after_user_deletion(sender, **kwargs):
 
 # Permission, Group
 
-# Permissions are checked for each received message. Therefore changes to
-# permissions and groups have (almost) immediate effect.
+# TODO Permissions are cached.
+# See https://docs.djangoproject.com/en/2.0/topics/auth/default/#permission-caching
+# Therefore re-add those signals.
