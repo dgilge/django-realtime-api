@@ -76,11 +76,7 @@ setup(
     package_data=get_package_data(package),
     install_requires=[
         'django~=2.0',
-        'channels~=2.0',
-    ],
-    dependency_links=[
-        'git+https://github.com/django/channels.git#egg=channels',
-        #'git+https://github.com/django/asgiref.git#egg=asgiref',
+        'channels~=2.1',
     ],
     extras_require={
         'tests': [

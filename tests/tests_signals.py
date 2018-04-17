@@ -24,8 +24,8 @@ async def test_login(user):
 
     response = await communicator.receive_from()
     assert response == 'Socket closes with code 3'
-    assert await communicator_authenticated.queue_empty()
-    assert await communicator.queue_empty()
+    assert await communicator_authenticated.receive_nothing()
+    assert await communicator.receive_nothing()
 
     await communicator_authenticated.disconnect()
 
@@ -58,8 +58,8 @@ async def test_logout(user):
     r1 = await communicator_authenticated.receive_from()
     r2 = await communicator_authenticated2.receive_from()
     assert r1 == r2 == 'Socket closes with code 3'
-    assert await communicator.queue_empty()
-    assert await communicator_user2.queue_empty()
+    assert await communicator.receive_nothing()
+    assert await communicator_user2.receive_nothing()
 
     await communicator.disconnect()
     await communicator_user2.disconnect()
@@ -94,8 +94,8 @@ async def test_user_changes(user, method):
     r1 = await communicator_authenticated.receive_from()
     r2 = await communicator_authenticated2.receive_from()
     assert r1 == r2 == 'Socket closes with code 3'
-    assert await communicator.queue_empty()
-    assert await communicator_user2.queue_empty()
+    assert await communicator.receive_nothing()
+    assert await communicator_user2.receive_nothing()
 
     await communicator.disconnect()
     await communicator_user2.disconnect()

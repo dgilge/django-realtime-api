@@ -1,4 +1,3 @@
-import asyncio
 import itertools
 import pytest
 from importlib import import_module
@@ -134,19 +133,3 @@ class AuthWebsocketCommunicator(WebsocketCommunicator):
             request.session = engine.SessionStore()
         await database_sync_to_async(logout)(request)
         self._session_cookie = b''
-
-    async def queue_empty(self, timeout=0.1):
-        if not self.output_queue.empty():
-            return False
-        if timeout <= 0.01:
-            await asyncio.sleep(timeout)
-            return self.output_queue.empty()
-        await asyncio.sleep(0.01)
-        if not self.output_queue.empty():
-            return False
-        await asyncio.sleep(timeout - 0.01)
-        return self.output_queue.empty()
-
-    async def queue_count(self, wait=0.1):
-        await asyncio.sleep(wait)
-        return self.output_queue.qsize()

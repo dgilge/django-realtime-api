@@ -1,4 +1,3 @@
-import asyncio
 import json
 import pytest
 from asgiref.sync import sync_to_async
@@ -122,7 +121,7 @@ async def test_proxy_model_post_save(subscribed_communicator):
     assert response['data'] == data
     await proxy_communicator.disconnect()
 
-    assert await subscribed_communicator.queue_empty()
+    assert await subscribed_communicator.receive_nothing()
     await subscribed_communicator.disconnect()
 
 
@@ -164,20 +163,11 @@ async def test_proxy_model_post_delete(subscribed_communicator):
     assert response['action'] == 'delete'
     await proxy_communicator.disconnect()
 
-    assert await subscribed_communicator.queue_empty()
+    assert await subscribed_communicator.receive_nothing()
     await subscribed_communicator.disconnect()
 
 
 # post_change_receiver
-
-async def test_queue_methods():
-    communicator = await AuthWebsocketCommunicator(APITestDemultiplexer, '/')
-    connected, _ = await communicator.connect()
-    assert connected
-    assert await communicator.queue_empty() is True
-    assert await communicator.queue_count() == 0
-    await communicator.disconnect()
-
 
 @pytest.mark.django_db
 async def test_model_attr_signal_broadcast(db_obj, subscribed_communicator):
@@ -192,7 +182,7 @@ async def test_model_attr_signal_broadcast(db_obj, subscribed_communicator):
     assert response['action'] == 'update'
     db_obj.signal_broadcast = False
     await database_sync_to_async(db_obj.save)()
-    assert await subscribed_communicator.queue_empty()
+    assert await subscribed_communicator.receive_nothing()
     await subscribed_communicator.disconnect()
 
 
@@ -243,8 +233,7 @@ async def test_subscribe_correct_objects(db_obj):
     )
 
     await api_send('standard', db_obj)
-    await asyncio.sleep(0.1)
-    assert communicator.output_queue.empty()
+    assert await communicator.receive_nothing()
 
     await api_send('standard', obj2)
     r1 = await communicator.receive_json_from()
@@ -270,8 +259,7 @@ async def test_subscribe_permissions_no_user_without_auth_middleware(db_obj):
     assert response == expected
 
     await api_send('permissions', db_obj)
-    await asyncio.sleep(0.1)
-    assert communicator.output_queue.empty()
+    assert await communicator.receive_nothing()
 
     await communicator.disconnect()
 
@@ -294,12 +282,12 @@ async def test_subscribe_perms_with_admin_no_auth_middleware(db_obj, admin):
     assert response == expected
 
     await api_send('permissions', db_obj)
-    await asyncio.sleep(0.1)
-    assert communicator.output_queue.empty()
+    assert await communicator.receive_nothing()
 
     await communicator.disconnect()
 
 
+@pytest.mark.xfail(reason='Channels bug #1017')
 async def test_subscribe_permissions_no_user_with_auth_middleware(db_obj):
     communicator = await AuthWebsocketCommunicator(
         AuthMiddlewareStack(APITestDemultiplexer),
@@ -316,12 +304,12 @@ async def test_subscribe_permissions_no_user_with_auth_middleware(db_obj):
     assert response == expected
 
     await api_send('permissions', db_obj)
-    await asyncio.sleep(0.1)
-    assert communicator.output_queue.empty()
+    assert await communicator.receive_nothing()
 
     await communicator.disconnect()
 
 
+@pytest.mark.xfail(reason='Channels bug #1017')
 async def test_subscribe_perms_with_user_with_auth_middleware(db_obj, user):
     communicator = await AuthWebsocketCommunicator(
         AuthMiddlewareStack(APITestDemultiplexer),
@@ -339,12 +327,12 @@ async def test_subscribe_perms_with_user_with_auth_middleware(db_obj, user):
     assert response == expected
 
     await api_send('permissions', db_obj)
-    await asyncio.sleep(0.1)
-    assert communicator.output_queue.empty()
+    assert await communicator.receive_nothing()
 
     await communicator.disconnect()
 
 
+@pytest.mark.xfail(reason='Channels bug #1017')
 async def test_subscribe_perms_with_admin_with_auth_middleware(db_obj, admin):
     communicator = await AuthWebsocketCommunicator(
         AuthMiddlewareStack(APITestDemultiplexer),
@@ -385,10 +373,9 @@ async def test_subscribe_prevent_add_groups_repeatedly(db_obj):
     assert consumer.groups == {group_name}
 
     await api_send('standard', db_obj)
-    await asyncio.sleep(0.1)
     # The channel wasn't added to the group because it was in consumer.groups
     # already
-    assert communicator.output_queue.empty()
+    assert await communicator.receive_nothing()
 
     await communicator.disconnect()
 

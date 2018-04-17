@@ -55,8 +55,6 @@ Some features you might find helpful:
   * ``login(**credentials)``
   * ``force_login(user, backend=None)``
   * ``logout()``
-  * ``queue_empty(timeout=0.1)`` – if there are messages to receive
-  * ``queue_count(wait=0.1)`` - how many messages wait to be received
 
 * ``create_user(username=None, password='pw', **kwargs)`` returns a user object. Usage::
 
@@ -74,7 +72,7 @@ Dependencies
 
 * Python 3.5 and higher
 * Django 2.0 (Django 1.11 might also work but is not tested)
-* Channels 2.0
+* Channels 2.1
 * Django REST framework 3.7 (if you want to use it)
 
 For production probably:
@@ -146,7 +144,7 @@ Quick start
 
 7. Start the development server with ``python manage.py runserver`` and you are ready to communicate with the API endpoint. See the `tutorial <http://channels.readthedocs.io/en/latest/tutorial/part_2.html>`_ in the Channels documentation for a simple implementation how to do that. Read on for details.
 
-   One thing probably want to override is ``get_group_name()``.
+   One thing you probably want to override is ``get_group_name()``.
 
 Actions
 =======
